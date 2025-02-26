@@ -1,0 +1,104 @@
+local player = game.Players.LocalPlayer
+
+if game.PlaceId == 14722542056 then
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "DashGUI"
+    gui.Parent = player:WaitForChild("PlayerGui")
+
+    local dashButton = Instance.new("ImageButton")
+    dashButton.Size = UDim2.new(0, 60, 0, 60)
+    dashButton.Position = UDim2.new(1, -80, 0.6, -30)
+    dashButton.Image = "rbxassetid://138028806969115"
+    dashButton.BackgroundTransparency = 1
+    dashButton.Parent = gui
+    dashButton.Active = true
+    dashButton.Draggable = true
+
+    local uicorner = Instance.new("UICorner", dashButton)
+    uicorner.CornerRadius = UDim.new(1, 0)
+
+    local cooldown = false
+    local cooldownTime = 3
+    local cooldownBar = Instance.new("Frame", gui)
+    cooldownBar.Size = UDim2.new(0, 60, 0, 5)
+    cooldownBar.Position = UDim2.new(1, -80, 0.6, 30)
+    cooldownBar.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    cooldownBar.Visible = false
+
+    local function updateCooldownBar(progress)
+        cooldownBar.Size = UDim2.new(progress, 0, 0, 5)
+    end
+
+    local function createDashEffect(character)
+        for _, part in pairs(character:GetChildren()) do
+            if part:IsA("BasePart") then
+                local clone = part:Clone()
+                clone.Transparency = 0.5
+                clone.Material = Enum.Material.Neon
+                clone.CanCollide = false
+                clone.Parent = workspace
+                game:GetService("Debris"):AddItem(clone, 0.3)
+            end
+        end
+    end
+
+    local function activateDash()
+        if cooldown then return end
+
+        cooldown = true
+        dashButton.BackgroundTransparency = 0.7
+        cooldownBar.Visible = true
+
+        local character = player.Character or player.CharacterAdded:Wait()
+        local humanoid = character:WaitForChild("Humanoid")
+        local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+        local animator = humanoid:FindFirstChildOfClass("Animator") or humanoid:WaitForChild("Animator")
+
+        local dashAnim = Instance.new("Animation")
+        dashAnim.AnimationId = "rbxassetid://14465982605"
+        local animTrack = animator:LoadAnimation(dashAnim)
+        animTrack:Play()
+
+        local dashSound = Instance.new("Sound")
+        dashSound.SoundId = "rbxassetid://18400344659"
+        dashSound.Volume = 2
+        dashSound.Parent = humanoidRootPart
+        dashSound:Play()
+
+        local bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.MaxForce = Vector3.new(1000000, 1000000, 1000000)
+        bodyVelocity.Velocity = humanoidRootPart.CFrame.LookVector * 250
+        bodyVelocity.Parent = humanoidRootPart
+
+        createDashEffect(character)
+
+        local isAirborne = humanoid:GetState() == Enum.HumanoidStateType.Freefall
+        local antiGravity
+        if isAirborne then
+            antiGravity = Instance.new("BodyForce")
+            antiGravity.Force = Vector3.new(0, workspace.Gravity * humanoidRootPart.AssemblyMass * 0.9, 0)
+            antiGravity.Parent = humanoidRootPart
+        end
+
+        task.wait(0.35)
+
+        bodyVelocity:Destroy()
+        if antiGravity then
+            antiGravity:Destroy()
+        end
+        dashSound:Destroy()
+        animTrack:Stop()
+        humanoid:Move(Vector3.new(0, 0, 0))
+
+        for i = 1, 100 do
+            updateCooldownBar(i / 100)
+            task.wait(cooldownTime / 100)
+        end
+
+        cooldownBar.Visible = false
+        cooldown = false
+        dashButton.BackgroundTransparency = 1
+    end
+
+    dashButton.MouseButton1Click:Connect(activateDash)
+end
