@@ -5,55 +5,94 @@ if game.PlaceId ~= 14722542056 then
     return
 end
 
-local gui = Instance.new("ScreenGui")
-gui.Name = "DashGUI"
-gui.Parent = player:WaitForChild("PlayerGui")
+local replicatedStorage = game:GetService("ReplicatedStorage")
+local playerGui = player:WaitForChild("PlayerGui")
 
-local dashButton = Instance.new("ImageButton")
-dashButton.Size = UDim2.new(0, 60, 0, 60)
-dashButton.Position = UDim2.new(1, -80, 0.6, -30)
-dashButton.Image = "rbxassetid://138028806969115"
-dashButton.BackgroundTransparency = 1
-dashButton.Parent = gui
-dashButton.Active = true
-dashButton.Draggable = true
+local displayPlayers = replicatedStorage:WaitForChild("displayPlayers")
+local playerStats = displayPlayers:FindFirstChild(player.Name):WaitForChild("stats")
+local characterValue = playerStats:WaitForChild("character")
 
-local uicorner = Instance.new("UICorner", dashButton)
-uicorner.CornerRadius = UDim.new(1, 0)
+local function canUseDash()
+    return characterValue.Value:lower() == "shadow"
+end
 
-local cooldown = false
-local cooldownTime = 35
+local function createDashGUI()
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "DashSystem"
+    gui.Parent = playerGui
 
-local cooldownFrame = Instance.new("Frame", gui)
-cooldownFrame.Size = UDim2.new(0, 60, 0, 5)
-cooldownFrame.Position = UDim2.new(1, -80, 0.6, 30)
-cooldownFrame.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-cooldownFrame.Visible = false
+    local dashFrame = Instance.new("Frame", gui)
+    dashFrame.Size = UDim2.new(0, 100, 0, 120)
+    dashFrame.Position = UDim2.new(1, -120, 0.7, -60)
+    dashFrame.BackgroundTransparency = 1
 
-local cooldownText = Instance.new("TextLabel", gui)
-cooldownText.Size = UDim2.new(0, 60, 0, 20)
-cooldownText.Position = UDim2.new(1, -80, 0.6, 40)
-cooldownText.BackgroundTransparency = 1
-cooldownText.TextScaled = true
-cooldownText.TextColor3 = Color3.fromRGB(255, 255, 255)
-cooldownText.Visible = false
+    local dashButton = Instance.new("ImageButton", dashFrame)
+    dashButton.Size = UDim2.new(0, 80, 0, 80)
+    dashButton.Position = UDim2.new(0, 10, 0, 10)
+    dashButton.Image = "rbxassetid://138028806969115"
+    dashButton.BackgroundTransparency = 0.5
+    dashButton.Active = true
+    dashButton.Draggable = true
+    dashButton.Visible = canUseDash()
 
-local function updateCooldownDisplay(timeLeft)
-    cooldownText.Text = tostring(timeLeft) .. "s"
-    cooldownFrame.Size = UDim2.new(timeLeft / cooldownTime, 0, 0, 5)
+    local uicorner = Instance.new("UICorner", dashButton)
+    uicorner.CornerRadius = UDim.new(1, 0)
+
+    local cooldownFrame = Instance.new("Frame", dashFrame)
+    cooldownFrame.Size = UDim2.new(1, 0, 0, 10)
+    cooldownFrame.Position = UDim2.new(0, 0, 1, -15)
+    cooldownFrame.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    cooldownFrame.Visible = false
+
+    local cooldownText = Instance.new("TextLabel", dashFrame)
+    cooldownText.Size = UDim2.new(1, 0, 0, 20)
+    cooldownText.Position = UDim2.new(0, 0, 1, -35)
+    cooldownText.BackgroundTransparency = 1
+    cooldownText.TextScaled = true
+    cooldownText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    cooldownText.Visible = false
+
+    return dashButton, cooldownFrame, cooldownText
+end
+
+local dashButton, cooldownFrame, cooldownText = createDashGUI()
+
+local isCooldown = false
+local cooldownDuration = 35
+local dashPower = 95
+local dashDuration = 0.35
+
+local function updateCooldownDisplay(remainingTime)
+    cooldownText.Text = "Cooldown: " .. remainingTime .. "s"
+    cooldownFrame.Size = UDim2.new(remainingTime / cooldownDuration, 0, 0, 10)
+end
+
+local function createDashEffect(character)
+    for i = 1, 5 do
+        local effectClone = Instance.new("Part")
+        effectClone.Size = Vector3.new(2, 5, 2)
+        effectClone.Position = character.HumanoidRootPart.Position
+        effectClone.Anchored = true
+        effectClone.Material = Enum.Material.Neon
+        effectClone.Color = Color3.fromRGB(math.random(50, 255), 50, math.random(50, 255))
+        effectClone.Transparency = 0.7
+        effectClone.Parent = workspace
+        game:GetService("Debris"):AddItem(effectClone, 0.3)
+        task.wait(0.05)
+    end
 end
 
 local function activateDash()
-    if cooldown then return end
+    if isCooldown or not canUseDash() then return end
 
-    cooldown = true
-    dashButton.BackgroundTransparency = 0.7
+    isCooldown = true
+    dashButton.BackgroundTransparency = 0.8
     cooldownFrame.Visible = true
     cooldownText.Visible = true
 
     local character = player.Character or player.CharacterAdded:Wait()
-    local humanoid = character:WaitForChild("Humanoid")
-    local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
     local animator = humanoid:FindFirstChildOfClass("Animator") or humanoid:WaitForChild("Animator")
 
     local dashAnim = Instance.new("Animation")
@@ -69,8 +108,10 @@ local function activateDash()
 
     local bodyVelocity = Instance.new("BodyVelocity")
     bodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
-    bodyVelocity.Velocity = humanoidRootPart.CFrame.LookVector * 95
+    bodyVelocity.Velocity = humanoidRootPart.CFrame.LookVector * dashPower
     bodyVelocity.Parent = humanoidRootPart
+
+    createDashEffect(character)
 
     local isAirborne = humanoid:GetState() == Enum.HumanoidStateType.Freefall
     local antiGravity
@@ -80,7 +121,7 @@ local function activateDash()
         antiGravity.Parent = humanoidRootPart
     end
 
-    task.wait(0.3)
+    task.wait(dashDuration)
 
     bodyVelocity:Destroy()
     if antiGravity then
@@ -90,15 +131,19 @@ local function activateDash()
     animTrack:Stop()
     humanoid:Move(Vector3.new(0, 0, 0))
 
-    for i = cooldownTime, 0, -1 do
+    for i = cooldownDuration, 0, -1 do
         updateCooldownDisplay(i)
         task.wait(1)
     end
 
     cooldownFrame.Visible = false
     cooldownText.Visible = false
-    cooldown = false
-    dashButton.BackgroundTransparency = 1
+    isCooldown = false
+    dashButton.BackgroundTransparency = 0.5
 end
 
 dashButton.MouseButton1Click:Connect(activateDash)
+
+characterValue.Changed:Connect(function()
+    dashButton.Visible = canUseDash()
+end)
